@@ -1,0 +1,18 @@
+Vagrant.configure(2) do |config|
+    config.vm.box = "debian/wheezy64"
+  
+    config.vm.provider "virtualbox" do |vb|
+      vb.name = "VM Name"
+  
+      # Get disk path
+      line = `VBoxManage list systemproperties | grep "Default machine folder"`
+      vb_machine_folder = line.split(':')[1].strip()
+      second_disk = File.join(vb_machine_folder, vb.name, 'disk2.vdi')
+      vb.customize ['storagectl', :id, '--name', 'SATA Controller', '--add', 'sata', '--portcount', 4]
+      # Create and attach disk
+      unless File.exist?(second_disk)
+        vb.customize ['createhd', '--filename', second_disk, '--format', 'VDI', '--size', 60 * 1024]
+      end
+      vb.customize ['storageattach', :id, '--storagectl', 'SATA Controller', '--port', 0, '--device', 1, '--type', 'hdd', '--medium', second_disk]
+    end
+  end

@@ -1,0 +1,54 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Author: Stephen K
+# Company: Cloud Initiatives Inc.
+
+# README
+#
+# Getting Started:
+# 1. vagrant plugin install vagrant-hostmanager
+# 2. vagrant up
+# 3. vagrant ssh or vagrant up <servername>
+###################################################################################################
+
+MASTER_SERVER_CPU = 2
+MASTER_SERVER_MEMORY = 1024
+DB_SERVER_CPU = 2
+DB_SERVER_MEMORY = 2048
+NODE_SERVER_CPU = 1
+NODE_SERVER_MEMORY = 1024
+
+BOX_IMAGE = "centos/7"
+#BOX_IMAGE = "ubuntu/trusty64"
+#BOX_IMAGE = "centos/7"
+NODE_COUNT = 2
+
+
+$POST_SCRIPT = <<-SCRIPT
+yum upgrade -y
+rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+yum install gcc kernel-devel kernel-headers dkms make bzip2 perl wget vim ansible -y
+echo "Hello" >> /home/vagrant/hello.txt
+SCRIPT
+
+
+Vagrant.configure(2) do |config|
+    config.hostmanager.enabled = true
+    config.vm.provider "virtualbox" do |vb| 
+        vb.memory = "1024"
+        vb.cpus = "2"
+       end
+    config.hostmanager.enabled = true
+    config.vm.box = "centos/7"
+    config.vm.define "control01", primary: true do |h|
+        h.vm.hostname = "control01"
+        h.vm.network "private_network", ip: "10.7.100.11"
+        #h.vm.provision "shell", inline: $POST_SCRIPT
+    end
+    config.vm.define "bastion01" do |h|
+        h.vm.hostname = "bastion01"
+        h.vm.network "private_network", ip: "10.7.100.101"
+        #h.vm.provision "shell", inline: $POST_SCRIPT
+      end
+end

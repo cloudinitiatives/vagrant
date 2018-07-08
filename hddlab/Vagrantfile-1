@@ -1,0 +1,74 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Author: Stephen K
+# Company: Cloud Initiatives Inc.
+
+# Getting Started:
+# 1. vagrant plugin install vagrant-hostmanager
+# 2. Generate SSH Keys - ssh-keygen -t rsa -N "" -f $(pwd)/id_rsa
+# 3. vagrant up
+# 4. vagrant ssh  //Will connect you to MASTER or use vagrant ssh <servername>
+# 5. Once connected to the master, you can ssh into any lab server using keys (without a password) with command: ssh vagrant@<serverhostname>
+# 6. vagrant halt //Stops the lab and powers off VMs - Keeps all data
+# 7. vagrant destroy -f ////Stops the lab and powers off VMs and DELETES ALL VMs - LOOSE ALL DATA
+#############################################################################################################################################
+
+# Global Definitions
+CENTOS7 = "centos/7"
+NETSUB = "10.7.100."
+MASTERIP = NETSUB + "5"
+
+# MASTER or BASTION Server Definitions (Also Primary Server for SSH)
+MASTER_SERVER_CPU = 1
+MASTER_SERVER_MEMORY = 1024
+MASTER_SERVER_OS = CENTOS7
+MASTER_SERVER_NAME = "master"
+GIGSPERDISK = 3
+VBM = `VBoxManage list systemproperties | grep "Default machine folder"`
+VMF = VBM.split(':')[1].strip()
+HDD01 = File.join(VMF, vb.hostname, 'hdd01.vdi')
+HDD02 = File.join(VMF, vb.hostname, 'hdd02.vdi')
+HDD03 = File.join(VMF, vb.hostname, 'hdd03.vdi')
+
+
+Vagrant.configure("2") do |config|
+  config.ssh.forward_agent = true
+  config.vm.define MASTER_SERVER_NAME + "1", primary: true do |subconfig|
+    subconfig.vm.box = CENTOS7
+    subconfig.vm.hostname = MASTER_SERVER_NAME + "1"
+    subconfig.vm.network :private_network, ip: MASTERIP
+    # subconfig.vm.provision "file", source: "./id_rsa_vagrant", destination: "/home/vagrant/.ssh/id_rsa_vagrant"
+    # subconfig.vm.provision "file", source: "./id_rsa_vagrant.pub", destination: "/home/vagrant/.ssh/id_rsa_vagrant.pub"
+    # subconfig.vm.provision "file", source: "./config", destination: "/home/vagrant/.ssh/config"
+    # subconfig.vm.provision "shell", inline: "cat /home/vagrant/.ssh/id_rsa_vagrant.pub >> /home/vagrant/.ssh/authorized_keys"
+    # subconfig.vm.provision "shell", inline: "chown -R vagrant:vagrant /home/vagrant/.ssh/"
+    # subconfig.vm.provision "shell", inline: "chmod 600 /home/vagrant/.ssh/config"
+    # subconfig.vm.provision "shell", inline: "eval $(ssh-agent)"
+    # subconfig.vm.provision "shell", inline: "ssh-add /home/vagrant/.ssh/id_rsa_vagrant"
+    config.vm.provision "shell", inline: <<-SHELL
+    sudo mkfs.ext4 /dev/sdb
+    sudo mkfs.ext4 /dev/sdc
+    sudo mkfs.ext4 /dev/sdd
+    SHELL
+    subconfig.vm.provider "virtualbox" do |resource|
+      resource.cpus = MASTER_SERVER_CPU
+      resource.memory = MASTER_SERVER_MEMORY
+      resource.customize ['storagectl', :id, '--name', 'SATA Controller', '--add', 'sata', '--portcount', 4]
+      if not File.exists?(HDD01)
+        resource.customize ['createhd', '--filename', HDD01, '--variant', 'Fixed', '--size', GIGSPERDISK * 1024]
+      end
+      if not File.exists?(HDD02)
+        resource.customize ['createhd', '--filename', HDD02, '--variant', 'Fixed', '--size', GIGSPERDISK * 1024]
+      end
+      if not File.exists?(HDD03)
+        resource.customize ['createhd', '--filename', HDD03, '--variant', 'Fixed', '--size', GIGSPERDISK * 1024]
+      end
+      resource.customize ['storageattach', :id,  '--storagectl', 'SATA Controller', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', HDD01]
+      resource.customize ['storageattach', :id,  '--storagectl', 'SATA Controller', '--port', 2, '--device', 0, '--type', 'hdd', '--medium', HDD02]
+      resource.customize ['storageattach', :id,  '--storagectl', 'SATA Controller', '--port', 3, '--device', 0, '--type', 'hdd', '--medium', HDD03]
+
+
+    end
+  end
+end
